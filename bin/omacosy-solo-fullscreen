@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# omacosy-solo-fullscreen [on|off|toggle|sync] — a workspace holding ONE
+# tiled window shows it the way Super+F does: the whole display, no gaps,
+# the bar tucked away (the top edge brings it back), no ring. A second
+# window drops back to normal tiling. Opt-in (issue #16): the marker file
+# below is the entire setting. No args = toggle.
+#
+# `sync` is what aerospace.toml's on-focus-changed hook runs. Without the
+# marker it exits before asking AeroSpace anything, so the hook costs one
+# shell start per focus change for everyone who never opts in.
+#
+# The rule acts on TRANSITIONS, never on the level. Forcing fullscreen on
+# every focus change fights Super+F both ways: leave fullscreen on a lone
+# window and the next hover forces it back; enter it on a busy workspace
+# and the count forces it out. So each visible workspace remembers the
+# window it last saw alone, and only a change acts:
+#   - a window becomes the only tiled one -> fullscreen on. It counts as
+#     ours only when the call changed something (--fail-if-noop), so a
+#     window fullscreened by hand is never taken over.
+#   - a second tiled window arrives -> windows WE fullscreened go back.
+#     AeroSpace mostly does this itself (focusing another tiling window
+#     exits fullscreen); this covers a window that arrives unfocused.
+# Whatever Super+F does in between stands until the count moves again.
+# Floats do not count: they sit over a fullscreen tile the way they sit
+# over a tiled one.
+#
+# OmniWM needs none of this: dwindle's singleWindowFit = "fill" already
+# gives a lone window the frame its own Super+F uses, on every workspace.
+set -uo pipefail
+
+MARK="$HOME/.config/omacosy/solo-fullscreen"
+mode="${1:-toggle}"
+[ "$mode" = sync ] && [ ! -e "$MARK" ] && exit 0
+
+STATE="/tmp/omacosy-solo-$UID"
+AUTO="$STATE/auto" # ids this script fullscreened, one per line
+A="$(command -v aerospace || echo /opt/homebrew/bin/aerospace)"
+
+# a live OmniWM answers its socket in ~3 ms (same probe as omacosy-ws)
+wm_is_omniwm() { "$HOME/.local/bin/omacosy-omni" active >/dev/null 2>&1; }
+
+forget() {
+  grep -vx "$1" "$AUTO" >"$AUTO.$$" 2>/dev/null
+  mv -f "$AUTO.$$" "$AUTO"
+}
+
+apply() {
+  [ -e "$MARK" ] || return 0
+  mkdir -p "$STATE"
+  # one call for every visible workspace: docked, the other display's
+  # workspace changes too (a window thrown over there, a close over there)
+  listing="$("$A" list-windows --workspace visible \
+    --format '%{workspace}|%{window-id}|%{window-layout}' 2>/dev/null)" || return 0
+  tiled="$(printf '%s\n' "$listing" | awk -F'|' 'NF >= 3 && $3 != "floating" { print $1 "|" $2 }')"
+  printf '%s\n' "$tiled" | awk -F'|' 'NF == 2 { n[$1]++ } END { for (w in n) print n[w], w }' |
+    while read -r n ws; do
+      rec="$STATE/ws-$ws"
+      if [ "$n" -eq 1 ]; then
+        id="$(printf '%s\n' "$tiled" | awk -F'|' -v w="$ws" '$1 == w { print $2 }')"
+        [ "$(cat "$rec" 2>/dev/null)" = "$id" ] && continue
+        printf '%s\n' "$id" >"$rec"
+        "$A" fullscreen on --window-id "$id" --no-outer-gaps --fail-if-noop >/dev/null 2>&1 &&
+          printf '%s\n' "$id" >>"$AUTO"
+      else
+        rm -f "$rec"
+        printf '%s\n' "$tiled" | awk -F'|' -v w="$ws" '$1 == w { print $2 }' |
+          while read -r id; do
+            grep -qx "$id" "$AUTO" 2>/dev/null || continue
+            "$A" fullscreen off --window-id "$id" >/dev/null 2>&1
+            forget "$id"
+          done
+      fi
+    done
+}
+
+case "$mode" in
+sync)
+  mkdir -p "$STATE"
+  printf '%s\n' "$$" >"$STATE/gen"
+  apply
+  # AeroSpace's window list can trail the focus event that fired the hook
+  # (a closing window is still listed, the first window on an empty
+  # workspace is not yet), so look once more after it settles. Only the
+  # newest run looks: one close fires several focus changes, and a lock
+  # would let the first run's lock swallow the retry that mattered.
+  sleep 0.5
+  [ "$(cat "$STATE/gen" 2>/dev/null)" = "$$" ] && apply
+  ;;
+on)
+  mkdir -p "$(dirname "$MARK")" && : >"$MARK"
+  if wm_is_omniwm; then
+    echo "omacosy: solo fullscreen on — OmniWM already fills a lone window; this takes effect under AeroSpace"
+  else
+    apply
+    echo "omacosy: a lone window now goes fullscreen. Undo: omacosy-solo-fullscreen off"
+  fi
+  ;;
+off)
+  rm -f "$MARK"
+  # hand back only what this script took; fullscreens made by hand stay
+  if [ -f "$AUTO" ] && ! wm_is_omniwm; then
+    while read -r id; do
+      [ -n "$id" ] && "$A" fullscreen off --window-id "$id" >/dev/null 2>&1
+    done <"$AUTO"
+  fi
+  rm -rf "$STATE"
+  echo "omacosy: solo fullscreen off"
+  ;;
+toggle)
+  if [ -e "$MARK" ]; then exec "$0" off; else exec "$0" on; fi
+  ;;
+*)
+  echo "usage: omacosy-solo-fullscreen [on|off|toggle]" >&2
+  exit 1
+  ;;
+esac
