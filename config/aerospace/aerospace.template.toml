@@ -48,11 +48,13 @@ on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 # AEROSPACE_WINDOW_ID names the newly focused window.
 #
 # The second entry is opt-in (`omacosy-solo-fullscreen on`): a workspace
-# holding one tiled window shows it the way Super+F does. Opted out, the
-# script exits before asking AeroSpace anything.
+# holding one tiled window shows it the way Super+F does. The marker test
+# lives HERE, and `exec` replaces the shell, so opting in costs one
+# process per focus change and opting out costs none beyond the shell
+# exec-and-forget already spawns.
 on-focus-changed = [
   'exec-and-forget $HOME/.local/bin/omacosy-helper split-hint',
-  'exec-and-forget $HOME/.local/bin/omacosy-solo-fullscreen sync'
+  'exec-and-forget [ -e "$HOME/.config/omacosy/solo-fullscreen" ] && exec "$HOME/.local/bin/omacosy-solo-fullscreen" sync'
 ]
 
 # Tell the bar which workspace is focused — a bash builtin redirect,

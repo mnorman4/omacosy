@@ -434,7 +434,13 @@ It acts when a workspace's lone window changes, never on every focus
 change, so `Super+F` keeps its meaning: leave fullscreen on a lone
 window and it stays tiled until the workspace gains and loses a window
 again; fullscreen a window by hand on a busy workspace and it is never
-taken back. Floats do not count.
+taken back, and `off` hands back only what the rule itself took.
+
+Only real tiles count. Floats do not, and neither do the windows macOS
+hands back for a hidden app, a minimised window or one in native
+fullscreen — counting those kept a lone window tiled forever. Every
+workspace is judged, not just the ones on screen, so a workspace is
+already right when you switch to it.
 
 Under OmniWM there is nothing to switch: its dwindle layout already
 gives a lone window the frame its own `Super+F` uses
