@@ -1,10 +1,3 @@
-# OmniWM settings for omacosy — FULL canonical file, schemaVersion 3
-# (0.6.8). Upgrades migrate automatically (backups: settings.toml.pre-v*).
-# Hyper+arrows bind moveColumn.* — on dwindle that is the true tile
-# SWAP; plain move.* (Ctrl+Opt+Shift+arrows) STACKS into the neighbor
-# as a group. Migration strips comments and reorders tables: the repo
-# copy is the reference, the live copy is state; theme-set rewrites
-# [borders.color] per theme. Mirrored 2026-09-08, live-verified.
 monitorBarOverrides = []
 monitorDwindleOverrides = []
 monitorGapOverrides = []
@@ -17,13 +10,13 @@ mode = "dark"
 
 [borders]
 enabled = true
-width = 5.0
+width = 2.0
 
 [borders.color]
 alpha = 1.0
-blue = 0.4588235294117647
-green = 0.5803921568627451
-red = 0.3137254901960784
+blue = 0.09803921568627451
+green = 0.5019607843137255
+red = 0.996078431372549
 
 [clipboard]
 historyEnabled = true
@@ -34,7 +27,7 @@ maxTotalBytes = 67108864
 [dwindle]
 defaultSplitRatio = 1.0
 moveToRootStable = true
-singleWindowFit = "fill"
+singleWindowFit = "1920x1080"
 smartSplit = false
 splitWidthMultiplier = 1.4
 useGlobalGaps = true
@@ -45,12 +38,12 @@ followsMouse = true
 followsWindowToMonitor = true
 lockModifier = "off"
 moveCrossesMonitorAtEdge = true
-moveMouseToFocusedWindow = false
+moveMouseToFocusedWindow = true
 raiseOnMouseFocus = true
 
 [gaps]
 fullscreenUsesOuterGaps = true
-size = 8.0
+size = 10.0
 
 [gaps.outer]
 bottom = 0.0
@@ -69,13 +62,13 @@ systemHyperTrigger = "None"
 updateChecksEnabled = false
 
 [gestures]
-fingerCount = 4
+fingerCount = 3
 invertDirection = true
 mouseMoveModifierKey = "option"
 mouseResizeModifierKey = "option"
 scrollEnabled = true
 scrollModifierKey = "optionShift"
-scrollSensitivity = 5.0
+scrollSensitivity = 3.8000000000000003
 trackpadScrollStyle = "snap"
 workspaceSwipeAxis = "horizontal"
 workspaceSwipeEnabled = true
@@ -95,10 +88,9 @@ margin = 1
 alwaysCenterSingleColumn = false
 centerFocusedColumn = "never"
 containerPrimarySpanPresets = [0.3333333333333333, 0.5, 0.6666666666666666]
-defaultContainerPrimarySpan = 0.5
 infiniteLoop = false
 singleWindowFit = "fill"
-visibleContainerCount = 2
+visibleContainerCount = 3
 
 [overview]
 zoom = 1.0
@@ -158,6 +150,21 @@ gridColumn = 1
 gridRow = 0
 monitorDisplayUUID = "37D8832A-2D66-02CA-B9F7-8F30A301B230"
 monitorName = "Built-in Retina Display"
+
+[[routing.arrangements]]
+id = "0B0BFB38-3B8C-4E83-AB42-6A1A9872C44D"
+
+[[routing.arrangements.monitors]]
+gridColumn = 0
+gridRow = 0
+monitorDisplayUUID = "747DEEFB-F9ED-428A-A1B7-1D4CBBFC0824"
+monitorName = "DELL U2722DE"
+
+[[routing.arrangements.monitors]]
+gridColumn = 1
+gridRow = 0
+monitorDisplayUUID = "819D4C14-ABD5-4ED6-947B-B06AA33A3120"
+monitorName = "DELL U2724DE"
 
 [scratchpads]
 
@@ -1070,7 +1077,7 @@ name = "6"
 type = "main"
 
 [[workspaces]]
-id = "5ECFAED7-6DCE-4078-A5D2-B577BA7AAF50"
+id = "0B2000CA-B825-4066-B1CD-665FE5BC7D2A"
 layoutType = "dwindle"
 name = "7"
 
@@ -1078,89 +1085,17 @@ name = "7"
 type = "main"
 
 [[workspaces]]
-id = "82A5188E-26C5-4BC3-8D75-305B022FB3B7"
-layoutType = "dwindle"
+id = "43D91A99-B0DA-464F-A93F-E786F1853B06"
+layoutType = "default"
 name = "8"
 
 [workspaces.monitorAssignment]
 type = "main"
 
 [[workspaces]]
-id = "1AE98F21-6826-421B-B567-6ABABE1066BA"
-layoutType = "dwindle"
+id = "09E43DFB-3C51-4028-BC2D-80FAAB0C090D"
+layoutType = "default"
 name = "9"
-
-[workspaces.monitorAssignment]
-type = "main"
-
-[[workspaces]]
-id = "0D8B61DE-0194-4741-9125-3A24DFCB726E"
-layoutType = "dwindle"
-name = "11"
-
-[workspaces.monitorAssignment]
-type = "secondary"
-
-[[workspaces]]
-id = "BC08C1CF-6D87-4904-9079-1495631F96C8"
-layoutType = "dwindle"
-name = "12"
-
-[workspaces.monitorAssignment]
-type = "secondary"
-
-[[workspaces]]
-id = "B0DF8309-EA62-4D0A-92F0-DA111723D023"
-layoutType = "dwindle"
-name = "13"
-
-[workspaces.monitorAssignment]
-type = "secondary"
-
-[[workspaces]]
-id = "5810E59D-5A68-43AC-9050-AD14721738E8"
-layoutType = "dwindle"
-name = "14"
-
-[workspaces.monitorAssignment]
-type = "secondary"
-
-[[workspaces]]
-id = "2ED6CC8F-48FA-4528-8B28-AC5CFD1F3325"
-layoutType = "dwindle"
-name = "15"
-
-[workspaces.monitorAssignment]
-type = "secondary"
-
-[[workspaces]]
-id = "7D8676BF-59CA-4639-9012-F4C3A975A790"
-layoutType = "dwindle"
-name = "16"
-
-[workspaces.monitorAssignment]
-type = "secondary"
-
-[[workspaces]]
-id = "F4F1600F-3B32-4D33-8FC7-0015F92D651F"
-layoutType = "dwindle"
-name = "17"
-
-[workspaces.monitorAssignment]
-type = "secondary"
-
-[[workspaces]]
-id = "549FA193-3198-44A8-8515-34C10F2F04ED"
-layoutType = "dwindle"
-name = "18"
-
-[workspaces.monitorAssignment]
-type = "secondary"
-
-[[workspaces]]
-id = "0894B020-A5C1-4ECA-8994-740A13E7CEDC"
-layoutType = "dwindle"
-name = "19"
 
 [workspaces.monitorAssignment]
 type = "secondary"
