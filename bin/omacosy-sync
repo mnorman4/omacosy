@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Update a personal Omakosy customization branch from the official project,
+# publish the rebased branch to the fork, and reinstall without starting
+# AeroSpace on an OmniWM system.
+set -euo pipefail
+
+say() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
+die() { printf '\033[1;31m==>\033[0m %s\n' "$*" >&2; exit 1; }
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BRANCH="local/customizations"
+
+git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || die "$REPO is not a Git repository"
+[ "$(git -C "$REPO" branch --show-current)" = "$BRANCH" ] || die "switch to $BRANCH first"
+
+if [ -n "$(git -C "$REPO" status --porcelain)" ]; then
+  git -C "$REPO" status --short
+  die "working tree has changes; commit or discard them before syncing"
+fi
+
+say "Fetching official Omakosy updates"
+git -C "$REPO" fetch upstream main
+
+LOCAL="$(git -C "$REPO" rev-parse HEAD)"
+REMOTE="$(git -C "$REPO" rev-parse upstream/main)"
+if [ "$LOCAL" != "$REMOTE" ] && ! git -C "$REPO" merge-base --is-ancestor "$REMOTE" "$LOCAL"; then
+  BACKUP="backup/local-customizations-$(date +%Y%m%d-%H%M%S)"
+  git -C "$REPO" branch "$BACKUP"
+  say "Created rollback branch $BACKUP"
+  say "Rebasing local customizations onto upstream/main"
+  if ! git -C "$REPO" rebase upstream/main; then
+    echo
+    echo "Resolve each conflict, then run:"
+    echo "  git add <resolved-files>"
+    echo "  git rebase --continue"
+    echo
+    echo "To abandon the update: git rebase --abort"
+    exit 1
+  fi
+else
+  say "Customization branch already contains the latest upstream/main"
+fi
+
+say "Publishing $BRANCH to the mnorman4 fork"
+git -C "$REPO" push --force-with-lease --set-upstream origin "$BRANCH"
+
+say "Installing updated components while preserving OmniWM"
+"$REPO/install.sh" --omniwm
+
+say "Update complete: $(git -C "$REPO" log -1 --format='%h %s')"
