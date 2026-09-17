@@ -1,0 +1,471 @@
+#!/usr/bin/env python3
+"""Import an Omarchy theme and generate the files Omacosy consumes."""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import tomllib
+from pathlib import Path
+from urllib.parse import urlparse
+
+
+HEX = re.compile(r"^#?([0-9a-fA-F]{6})(?:[0-9a-fA-F]{2})?$")
+SLUG = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+
+
+def fail(message: str) -> "NoReturn":
+    print(f"omacosy-theme-import: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def color(value: object, fallback: str | None = None) -> str:
+    if value is None:
+        if fallback is None:
+            fail("theme palette is missing a required color")
+        value = fallback
+    match = HEX.match(str(value).strip())
+    if not match:
+        if fallback is None:
+            fail(f"invalid color value: {value!r}")
+        return fallback
+    return f"#{match.group(1).lower()}"
+
+
+def mix(first: str, second: str, amount: float) -> str:
+    a = tuple(int(first[i : i + 2], 16) for i in (1, 3, 5))
+    b = tuple(int(second[i : i + 2], 16) for i in (1, 3, 5))
+    values = tuple(round(x + (y - x) * amount) for x, y in zip(a, b))
+    return "#" + "".join(f"{value:02x}" for value in values)
+
+
+def is_dark(value: str) -> bool:
+    r, g, b = (int(value[i : i + 2], 16) / 255 for i in (1, 3, 5))
+    luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    return luminance < 0.55
+
+
+def derive_name(source: str) -> str:
+    raw = Path(urlparse(source).path).name if "://" in source else Path(source).name
+    raw = re.sub(r"\.git$", "", raw, flags=re.IGNORECASE)
+    raw = re.sub(r"^omarchy-", "", raw, flags=re.IGNORECASE)
+    raw = re.sub(r"-theme$", "", raw, flags=re.IGNORECASE)
+    slug = re.sub(r"[^a-z0-9]+", "-", raw.lower()).strip("-")
+    if not slug:
+        fail("could not derive a theme name; pass --name")
+    return slug
+
+
+def terminal_palette(primary: dict, cursor: dict, normal: dict, bright: dict, selection: dict) -> dict:
+    background = color(primary.get("background"))
+    foreground = color(primary.get("foreground"))
+    names = ("black", "red", "green", "yellow", "blue", "magenta", "cyan", "white")
+    normal_colors = [color(normal.get(name), background if name == "black" else foreground) for name in names]
+    bright_colors = [color(bright.get(name), normal_colors[index]) for index, name in enumerate(names)]
+    return {
+        "mode": "dark" if is_dark(background) else "light",
+        "background": background,
+        "foreground": foreground,
+        "cursor": color(cursor.get("cursor"), normal_colors[4]),
+        "cursor_text": color(cursor.get("text"), background),
+        "selection": color(selection.get("background"), bright_colors[0]),
+        "selection_foreground": color(selection.get("text"), foreground),
+        "normal": normal_colors,
+        "bright": bright_colors,
+    }
+
+
+def parse_legacy_colors(data: dict) -> dict:
+    primary = {"background": data.get("background"), "foreground": data.get("foreground")}
+    cursor = {"cursor": data.get("cursor"), "text": data.get("cursor_text")}
+    selection = {
+        "background": data.get("selection_background"),
+        "text": data.get("selection_foreground"),
+    }
+    names = ("black", "red", "green", "yellow", "blue", "magenta", "cyan", "white")
+    normal = {name: data.get(f"color{index}") for index, name in enumerate(names)}
+    bright = {name: data.get(f"color{index + 8}") for index, name in enumerate(names)}
+    return terminal_palette(primary, cursor, normal, bright, selection)
+
+
+def parse_semantic_colors(data: dict) -> dict:
+    background = color(data.get("background"))
+    foreground = color(data.get("foreground"))
+    accent = color(data.get("accent"), data.get("blue") or foreground)
+    muted = color(data.get("muted"), data.get("dark_foreground") or mix(background, foreground, 0.35))
+    normal = [
+        background,
+        color(data.get("red"), foreground),
+        color(data.get("green"), foreground),
+        color(data.get("yellow"), foreground),
+        color(data.get("blue"), accent),
+        color(data.get("magenta"), accent),
+        color(data.get("cyan"), accent),
+        foreground,
+    ]
+    bright = [
+        muted,
+        color(data.get("bright_red"), normal[1]),
+        color(data.get("bright_green"), normal[2]),
+        color(data.get("bright_yellow"), normal[3]),
+        color(data.get("bright_blue"), normal[4]),
+        color(data.get("bright_magenta"), normal[5]),
+        color(data.get("bright_cyan"), normal[6]),
+        color(data.get("bright_foreground"), foreground),
+    ]
+    return {
+        "mode": str(data.get("mode") or ("dark" if is_dark(background) else "light")),
+        "background": background,
+        "foreground": foreground,
+        "cursor": accent,
+        "cursor_text": background,
+        "selection": color(data.get("selection"), muted),
+        "selection_foreground": foreground,
+        "normal": normal,
+        "bright": bright,
+        "semantic_source": data,
+    }
+
+
+def load_palette(source: Path) -> tuple[dict, str]:
+    colors_file = source / "colors.toml"
+    if colors_file.is_file():
+        with colors_file.open("rb") as handle:
+            data = tomllib.load(handle)
+        if "color0" in data:
+            return parse_legacy_colors(data), "colors.toml (terminal palette)"
+        if "background" in data and "foreground" in data:
+            return parse_semantic_colors(data), "colors.toml (semantic palette)"
+
+    alacritty_file = source / "alacritty.toml"
+    if alacritty_file.is_file():
+        with alacritty_file.open("rb") as handle:
+            data = tomllib.load(handle).get("colors", {})
+        return terminal_palette(
+            data.get("primary", {}),
+            data.get("cursor", {}),
+            data.get("normal", {}),
+            data.get("bright", {}),
+            data.get("selection", {}),
+        ), "alacritty.toml"
+
+    ghostty_file = source / "ghostty.conf"
+    if ghostty_file.is_file():
+        values: dict[str, str] = {}
+        palette: dict[int, str] = {}
+        for raw in ghostty_file.read_text().splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = (part.strip() for part in line.split("=", 1))
+            if key == "palette" and "=" in value:
+                index, entry = value.split("=", 1)
+                palette[int(index)] = entry.strip()
+            else:
+                values[key] = value
+        if all(index in palette for index in range(16)):
+            return terminal_palette(
+                {"background": values.get("background"), "foreground": values.get("foreground")},
+                {"cursor": values.get("cursor-color"), "text": values.get("cursor-text")},
+                dict(zip(("black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"), (palette[i] for i in range(8)))),
+                dict(zip(("black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"), (palette[i] for i in range(8, 16)))),
+                {"background": values.get("selection-background"), "text": values.get("selection-foreground")},
+            ), "ghostty.conf"
+
+    fail("no supported palette found (expected colors.toml, alacritty.toml, or ghostty.conf)")
+
+
+def semantic(palette: dict) -> dict[str, str]:
+    source = palette.get("semantic_source", {})
+    bg = palette["background"]
+    fg = palette["foreground"]
+    normal = palette["normal"]
+    bright = palette["bright"]
+    derived_muted = mix(bg, fg, 0.45)
+    return {
+        "mode": palette["mode"],
+        "accent": color(source.get("accent"), palette["cursor"]),
+        "selection": color(source.get("selection"), palette["selection"]),
+        "muted": color(source.get("muted"), derived_muted),
+        "background": bg,
+        "dark_background": color(source.get("dark_background"), mix(bg, "#000000", 0.18)),
+        "darker_background": color(source.get("darker_background"), mix(bg, "#000000", 0.32)),
+        "lighter_background": color(source.get("lighter_background"), bright[0]),
+        "foreground": fg,
+        "dark_foreground": color(source.get("dark_foreground"), derived_muted),
+        "light_foreground": color(source.get("light_foreground"), normal[7]),
+        "bright_foreground": color(source.get("bright_foreground"), bright[7]),
+        "red": color(source.get("red"), normal[1]),
+        "yellow": color(source.get("yellow"), normal[3]),
+        "orange": color(source.get("orange"), mix(normal[1], normal[3], 0.55)),
+        "green": color(source.get("green"), normal[2]),
+        "cyan": color(source.get("cyan"), normal[6]),
+        "blue": color(source.get("blue"), normal[4]),
+        "magenta": color(source.get("magenta"), normal[5]),
+        "brown": color(source.get("brown"), mix(normal[3], bg, 0.45)),
+        "bright_red": color(source.get("bright_red"), bright[1]),
+        "bright_yellow": color(source.get("bright_yellow"), bright[3]),
+        "bright_green": color(source.get("bright_green"), bright[2]),
+        "bright_cyan": color(source.get("bright_cyan"), bright[6]),
+        "bright_blue": color(source.get("bright_blue"), bright[4]),
+        "bright_magenta": color(source.get("bright_magenta"), bright[5]),
+    }
+
+
+def write_colors(path: Path, values: dict[str, str]) -> None:
+    groups = (
+        ("mode",),
+        ("accent", "selection", "muted"),
+        ("background", "dark_background", "darker_background", "lighter_background"),
+        ("foreground", "dark_foreground", "light_foreground", "bright_foreground"),
+        ("red", "yellow", "orange", "green", "cyan", "blue", "magenta", "brown"),
+        ("bright_red", "bright_yellow", "bright_green", "bright_cyan", "bright_blue", "bright_magenta"),
+    )
+    blocks = ["\n".join(f'{key} = "{values[key]}"' for key in group) for group in groups]
+    path.write_text("\n\n".join(blocks) + "\n")
+
+
+def write_ghostty(path: Path, palette: dict) -> None:
+    lines = [
+        "# Generated by omacosy-theme-import. Do not edit directly.",
+        f"background = {palette['background']}",
+        f"foreground = {palette['foreground']}",
+        f"cursor-color = {palette['cursor']}",
+        f"cursor-text = {palette['cursor_text']}",
+        f"selection-background = {palette['selection']}",
+        f"selection-foreground = {palette['selection_foreground']}",
+        f"window-theme = {palette['mode']}",
+        "",
+    ]
+    lines.extend(f"palette = {index}={entry}" for index, entry in enumerate(palette["normal"] + palette["bright"]))
+    path.write_text("\n".join(lines) + "\n")
+
+
+def write_borders(path: Path, values: dict[str, str]) -> None:
+    path.write_text(
+        "#!/usr/bin/env bash\n"
+        "# Generated by omacosy-theme-import.\n"
+        f"export ACTIVE_COLOR=0xff{values['accent'][1:]}\n"
+        f"export INACTIVE_COLOR=0xff{values['selection'][1:]}\n"
+    )
+    path.chmod(0o755)
+
+
+def write_sketchybar(path: Path, values: dict[str, str]) -> None:
+    mapping = (
+        ("BAR_COLOR", "e6" + values["background"][1:]),
+        ("BAR_BG_SOLID", "ff" + values["background"][1:]),
+        ("ITEM_BG", "ff" + values["lighter_background"][1:]),
+        ("ACCENT", "ff" + values["accent"][1:]),
+        ("LABEL_COLOR", "ff" + values["foreground"][1:]),
+        ("ICON_COLOR", "ff" + values["foreground"][1:]),
+        ("MUTED", "ff" + values["muted"][1:]),
+        ("RED", "ff" + values["red"][1:]),
+        ("GREEN", "ff" + values["green"][1:]),
+        ("YELLOW", "ff" + values["yellow"][1:]),
+    )
+    body = "#!/usr/bin/env bash\n# Generated by omacosy-theme-import.\n"
+    body += "".join(f"export {key}=0x{value}\n" for key, value in mapping)
+    path.write_text(body)
+    path.chmod(0o755)
+
+
+def write_obsidian(path: Path, name: str, values: dict[str, str]) -> None:
+    v = values
+    path.write_text(f"""/* Generated by omacosy-theme-import from \"{name}\". */
+.theme-dark,
+.theme-light {{
+  color-scheme: {v['mode']};
+
+  --background-primary: {v['background']} !important;
+  --background-primary-alt: {v['dark_background']} !important;
+  --background-secondary: {v['dark_background']} !important;
+  --background-secondary-alt: {v['darker_background']} !important;
+  --background-modifier-border: {v['muted']} !important;
+  --background-modifier-border-hover: {v['accent']} !important;
+  --background-modifier-hover: {v['lighter_background']} !important;
+
+  --text-normal: {v['foreground']} !important;
+  --text-muted: color-mix(in srgb, {v['foreground']} 70%, transparent) !important;
+  --text-faint: color-mix(in srgb, {v['foreground']} 52%, transparent) !important;
+  --text-selection: {v['selection']} !important;
+  --text-on-accent: {v['background']} !important;
+
+  --text-title-h1: {v['red']};
+  --text-title-h2: {v['green']};
+  --text-title-h3: {v['yellow']};
+  --text-title-h4: {v['blue']};
+  --text-title-h5: {v['magenta']};
+  --text-title-h6: {v['cyan']};
+
+  --link-color: {v['accent']} !important;
+  --link-color-hover: {v['bright_blue']} !important;
+  --text-accent: {v['accent']} !important;
+  --text-accent-hover: {v['bright_blue']} !important;
+  --interactive-accent: {v['accent']} !important;
+  --interactive-accent-hover: {v['bright_blue']} !important;
+  --interactive-normal: {v['dark_background']} !important;
+  --interactive-hover: {v['lighter_background']} !important;
+
+  --code-normal: {v['cyan']};
+  --text-error: {v['red']};
+  --text-error-hover: {v['bright_red']};
+  --text-success: {v['green']};
+  --tag-color: {v['cyan']};
+  --tag-background: {v['selection']};
+  --graph-line: {v['muted']};
+  --graph-node: {v['accent']};
+  --graph-node-focused: {v['bright_blue']};
+  --graph-node-tag: {v['cyan']};
+  --graph-node-attachment: {v['green']};
+}}
+
+.cm-header-1,
+.markdown-rendered h1 {{ color: var(--text-title-h1); }}
+.cm-header-2,
+.markdown-rendered h2 {{ color: var(--text-title-h2); }}
+.cm-header-3,
+.markdown-rendered h3 {{ color: var(--text-title-h3); }}
+.cm-header-4,
+.markdown-rendered h4 {{ color: var(--text-title-h4); }}
+.cm-header-5,
+.markdown-rendered h5 {{ color: var(--text-title-h5); }}
+.cm-header-6,
+.markdown-rendered h6 {{ color: var(--text-title-h6); }}
+.markdown-rendered code {{ color: var(--code-normal); }}
+.cm-s-obsidian span.cm-keyword {{ color: var(--text-title-h1); }}
+.cm-s-obsidian span.cm-string {{ color: var(--text-title-h2); }}
+.cm-s-obsidian span.cm-number {{ color: var(--text-title-h3); }}
+.cm-s-obsidian span.cm-comment {{ color: var(--background-modifier-border); }}
+.cm-s-obsidian span.cm-operator,
+.cm-s-obsidian span.cm-def {{ color: var(--text-title-h4); }}
+.markdown-rendered a {{ color: var(--link-color); }}
+.markdown-rendered blockquote {{ border-left-color: var(--interactive-accent); }}
+.workspace-leaf.mod-active .workspace-leaf-header-title,
+.nav-file-title.is-active,
+.search-result-file-title {{ color: var(--interactive-accent); }}
+""")
+
+
+def copy_assets(source: Path, destination: Path) -> list[str]:
+    copied: list[str] = []
+    backgrounds = source / "backgrounds"
+    if backgrounds.is_dir():
+        shutil.copytree(backgrounds, destination / "backgrounds")
+        copied.append("backgrounds/")
+    for name in (
+        "icons.theme",
+        "neovim.lua",
+        "preview.png",
+        "preview-unlock.png",
+        "unlock.png",
+        "vscode.json",
+    ):
+        candidate = source / name
+        if candidate.is_file():
+            shutil.copy2(candidate, destination / name)
+            copied.append(name)
+    return copied
+
+
+def exclude_local(repo: Path, name: str) -> None:
+    exclude = repo / ".git" / "info" / "exclude"
+    entry = f"/themes/{name}/"
+    existing = exclude.read_text().splitlines() if exclude.exists() else []
+    if entry not in existing:
+        with exclude.open("a") as handle:
+            if existing and existing[-1] != "":
+                handle.write("\n")
+            handle.write("# Third-party theme imported locally by omacosy-theme-import\n")
+            handle.write(entry + "\n")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("source", help="Git URL or local Omarchy theme directory")
+    parser.add_argument("--name", help="destination theme name (derived from repository by default)")
+    parser.add_argument("--local-only", action="store_true", help="exclude the imported theme from Git")
+    parser.add_argument("--force", action="store_true", help="replace an existing theme after making a backup")
+    args = parser.parse_args()
+
+    repo = Path(__file__).resolve().parent.parent
+    themes = repo / "themes"
+    name = args.name or derive_name(args.source)
+    if not SLUG.match(name):
+        fail("theme name must contain only lowercase letters, digits, dots, underscores, and hyphens")
+    destination = themes / name
+
+    with tempfile.TemporaryDirectory(prefix="omacosy-theme-") as temporary:
+        temporary_path = Path(temporary)
+        supplied = Path(args.source).expanduser()
+        source_label = args.source
+        if supplied.is_dir():
+            source = supplied.resolve()
+        else:
+            source = temporary_path / "source"
+            subprocess.run(["git", "clone", "--depth", "1", "--", args.source, str(source)], check=True)
+
+        palette, palette_source = load_palette(source)
+        values = semantic(palette)
+        generated = temporary_path / "generated"
+        generated.mkdir()
+        assets = copy_assets(source, generated)
+        write_colors(generated / "colors.toml", values)
+        write_ghostty(generated / "ghostty.conf", palette)
+        write_obsidian(generated / "obsidian.css", name, values)
+        write_borders(generated / "borders.sh", values)
+        write_sketchybar(generated / "sketchybar.sh", values)
+
+        revision = "unknown"
+        result = subprocess.run(
+            ["git", "-C", str(source), "rev-parse", "HEAD"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            revision = result.stdout.strip()
+        license_name = next(
+            (candidate.name for candidate in source.iterdir() if candidate.is_file() and candidate.name.lower().startswith(("license", "copying"))),
+            None,
+        )
+        license_text = f"Source license file: `{license_name}`" if license_name else "No source license file detected; review rights before publishing"
+        distribution = "Local-only; excluded from Git" if args.local_only else "Git-visible; review before committing"
+        generated.joinpath("SOURCE.md").write_text(
+            f"# {name}\n\n"
+            f"- Source: {source_label}\n"
+            f"- Source revision: `{revision}`\n"
+            f"- Imported: {dt.date.today().isoformat()}\n"
+            f"- Palette source: `{palette_source}`\n"
+            f"- Generated by: `omacosy-theme-import`\n"
+            f"- License: {license_text}\n"
+            f"- Distribution: {distribution}\n"
+        )
+
+        if destination.exists() or destination.is_symlink():
+            if not args.force:
+                fail(f"{destination} already exists; pass --force to replace it")
+            stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+            backup = themes / f".{name}.backup-{stamp}"
+            destination.rename(backup)
+            print(f"backup: {backup}")
+        shutil.move(str(generated), destination)
+
+    if args.local_only:
+        exclude_local(repo, name)
+
+    print(f"theme: {destination}")
+    print(f"palette: {palette_source}")
+    print("generated: colors.toml ghostty.conf obsidian.css borders.sh sketchybar.sh SOURCE.md")
+    if assets:
+        print("copied: " + " ".join(assets))
+    print(f"apply: theme-set {name}")
+
+
+if __name__ == "__main__":
+    main()
