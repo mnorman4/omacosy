@@ -1,0 +1,72 @@
+/* Generated from Omakosy theme "solitude". Do not edit directly. */
+.theme-dark,
+.theme-light {
+  color-scheme: dark;
+
+  --background-primary: #101315 !important;
+  --background-primary-alt: #0c0e10 !important;
+  --background-secondary: #0c0e10 !important;
+  --background-secondary-alt: #080a0b !important;
+  --background-modifier-border: #4b4e55 !important;
+  --background-modifier-border-hover: #798186 !important;
+  --background-modifier-hover: #101315 !important;
+
+  --text-normal: #cacccc !important;
+  --text-muted: color-mix(in srgb, #cacccc 70%, transparent) !important;
+  --text-faint: color-mix(in srgb, #cacccc 52%, transparent) !important;
+  --text-selection: #343d41 !important;
+  --text-on-accent: #101315 !important;
+
+  --text-title-h1: #565d60;
+  --text-title-h2: #9fa5a9;
+  --text-title-h3: #d9dbdc;
+  --text-title-h4: #798186;
+  --text-title-h5: #aeaeae;
+  --text-title-h6: #707070;
+
+  --link-color: #798186 !important;
+  --link-color-hover: #798186 !important;
+  --text-accent: #798186 !important;
+  --text-accent-hover: #798186 !important;
+  --interactive-accent: #798186 !important;
+  --interactive-accent-hover: #798186 !important;
+  --interactive-normal: #0c0e10 !important;
+  --interactive-hover: #101315 !important;
+
+  --code-normal: #707070;
+  --text-error: #565d60;
+  --text-error-hover: #565d60;
+  --text-success: #9fa5a9;
+  --tag-color: #707070;
+  --tag-background: #343d41;
+  --graph-line: #4b4e55;
+  --graph-node: #798186;
+  --graph-node-focused: #798186;
+  --graph-node-tag: #707070;
+  --graph-node-attachment: #9fa5a9;
+}
+
+.cm-header-1,
+.markdown-rendered h1 { color: var(--text-title-h1); }
+.cm-header-2,
+.markdown-rendered h2 { color: var(--text-title-h2); }
+.cm-header-3,
+.markdown-rendered h3 { color: var(--text-title-h3); }
+.cm-header-4,
+.markdown-rendered h4 { color: var(--text-title-h4); }
+.cm-header-5,
+.markdown-rendered h5 { color: var(--text-title-h5); }
+.cm-header-6,
+.markdown-rendered h6 { color: var(--text-title-h6); }
+.markdown-rendered code { color: var(--code-normal); }
+.cm-s-obsidian span.cm-keyword { color: var(--text-title-h1); }
+.cm-s-obsidian span.cm-string { color: var(--text-title-h2); }
+.cm-s-obsidian span.cm-number { color: var(--text-title-h3); }
+.cm-s-obsidian span.cm-comment { color: var(--background-modifier-border); }
+.cm-s-obsidian span.cm-operator,
+.cm-s-obsidian span.cm-def { color: var(--text-title-h4); }
+.markdown-rendered a { color: var(--link-color); }
+.markdown-rendered blockquote { border-left-color: var(--interactive-accent); }
+.workspace-leaf.mod-active .workspace-leaf-header-title,
+.nav-file-title.is-active,
+.search-result-file-title { color: var(--interactive-accent); }

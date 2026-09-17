@@ -1,0 +1,72 @@
+/* Generated from Omakosy theme "hackerman". Do not edit directly. */
+.theme-dark,
+.theme-light {
+  color-scheme: dark;
+
+  --background-primary: #0b0c16 !important;
+  --background-primary-alt: #080910 !important;
+  --background-secondary: #080910 !important;
+  --background-secondary-alt: #06060c !important;
+  --background-modifier-border: #2d3450 !important;
+  --background-modifier-border-hover: #82fb9c !important;
+  --background-modifier-hover: #151828 !important;
+
+  --text-normal: #ddf7ff !important;
+  --text-muted: color-mix(in srgb, #ddf7ff 70%, transparent) !important;
+  --text-faint: color-mix(in srgb, #ddf7ff 52%, transparent) !important;
+  --text-selection: #1f253a !important;
+  --text-on-accent: #0b0c16 !important;
+
+  --text-title-h1: #50f872;
+  --text-title-h2: #4fe88f;
+  --text-title-h3: #50f7d4;
+  --text-title-h4: #829dd4;
+  --text-title-h5: #86a7df;
+  --text-title-h6: #7cf8f7;
+
+  --link-color: #82fb9c !important;
+  --link-color-hover: #829dd4 !important;
+  --text-accent: #82fb9c !important;
+  --text-accent-hover: #829dd4 !important;
+  --interactive-accent: #82fb9c !important;
+  --interactive-accent-hover: #829dd4 !important;
+  --interactive-normal: #080910 !important;
+  --interactive-hover: #151828 !important;
+
+  --code-normal: #7cf8f7;
+  --text-error: #50f872;
+  --text-error-hover: #50f872;
+  --text-success: #4fe88f;
+  --tag-color: #7cf8f7;
+  --tag-background: #1f253a;
+  --graph-line: #2d3450;
+  --graph-node: #82fb9c;
+  --graph-node-focused: #829dd4;
+  --graph-node-tag: #7cf8f7;
+  --graph-node-attachment: #4fe88f;
+}
+
+.cm-header-1,
+.markdown-rendered h1 { color: var(--text-title-h1); }
+.cm-header-2,
+.markdown-rendered h2 { color: var(--text-title-h2); }
+.cm-header-3,
+.markdown-rendered h3 { color: var(--text-title-h3); }
+.cm-header-4,
+.markdown-rendered h4 { color: var(--text-title-h4); }
+.cm-header-5,
+.markdown-rendered h5 { color: var(--text-title-h5); }
+.cm-header-6,
+.markdown-rendered h6 { color: var(--text-title-h6); }
+.markdown-rendered code { color: var(--code-normal); }
+.cm-s-obsidian span.cm-keyword { color: var(--text-title-h1); }
+.cm-s-obsidian span.cm-string { color: var(--text-title-h2); }
+.cm-s-obsidian span.cm-number { color: var(--text-title-h3); }
+.cm-s-obsidian span.cm-comment { color: var(--background-modifier-border); }
+.cm-s-obsidian span.cm-operator,
+.cm-s-obsidian span.cm-def { color: var(--text-title-h4); }
+.markdown-rendered a { color: var(--link-color); }
+.markdown-rendered blockquote { border-left-color: var(--interactive-accent); }
+.workspace-leaf.mod-active .workspace-leaf-header-title,
+.nav-file-title.is-active,
+.search-result-file-title { color: var(--interactive-accent); }
