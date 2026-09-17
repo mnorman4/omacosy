@@ -1134,7 +1134,7 @@ func moonEmoji(_ phase: String) -> String {
 }
 
 func updateWeather() {
-    guard let url = URL(string: "https://wttr.in/?format=j1") else { return }
+    guard let url = URL(string: "https://wttr.in/Austin,Texas?format=j1") else { return }
     var request = URLRequest(url: url)
     request.timeoutInterval = 15
     URLSession.shared.dataTask(with: request) { data, _, _ in
@@ -1152,23 +1152,23 @@ func updateWeather() {
         var w = Weather()
         let hour = Calendar.current.component(.hour, from: Date())
         w.emoji = weatherEmoji(Int(text(current, "weatherCode")) ?? 0, night: hour < 7 || hour >= 20)
-        w.temp = text(current, "temp_C")
+        w.temp = text(current, "temp_F")
         w.desc = nested(current, "weatherDesc").lowercased()
-        w.feels = text(current, "FeelsLikeC")
-        w.low = text(today, "mintempC")
-        w.high = text(today, "maxtempC")
+        w.feels = text(current, "FeelsLikeF")
+        w.low = text(today, "mintempF")
+        w.high = text(today, "maxtempF")
         w.humidity = text(current, "humidity")
 
         let degrees = Int(text(current, "winddirDegree")) ?? 0
         let arrows = ["↓", "↙", "←", "↖", "↑", "↗", "→", "↘"]
-        w.wind = "\(arrows[((degrees + 180) / 45) % 8]) \(text(current, "windspeedKmph")) km/h"
+        w.wind = "\(arrows[((degrees + 180) / 45) % 8]) \(text(current, "windspeedMiles")) mph"
 
         // rain earns a row only with real signal: falling now, or likely today
-        let precip = Double(text(current, "precipMM")) ?? 0
+        let precip = Double(text(current, "precipInches")) ?? 0
         let chance = ((today["hourly"] as? [[String: Any]]) ?? [])
             .compactMap { Int(($0["chanceofrain"] as? String) ?? "0") }.max() ?? 0
         if precip > 0 {
-            w.rain = "☔ \(text(current, "precipMM"))mm now"
+            w.rain = "☔ \(text(current, "precipInches")) in now"
             if chance >= 30 { w.rain += " · rain \(chance)% today" }
         } else if chance >= 30 {
             w.rain = "☔ rain \(chance)% today"
@@ -1198,7 +1198,7 @@ func updateWeather() {
 
         DispatchQueue.main.async {
             weather = w
-            set("weather") { $0.icon = ""; $0.label = "\(w.emoji) \(w.temp)°C" }
+            set("weather") { $0.icon = ""; $0.label = "\(w.emoji) \(w.temp)°F" }
             if openPopup == "weather" { refreshPopup() }
         }
     }.resume()
@@ -1670,11 +1670,11 @@ func bluetoothRows() -> [PopupRow] {
 
 func weatherRows() -> [PopupRow] {
     guard let w = weather else { return [] }
-    var rows: [PopupRow] = [PopupRow(text: "\(w.emoji) \(w.temp)°C \(w.desc)", hero: true)]
+    var rows: [PopupRow] = [PopupRow(text: "\(w.emoji) \(w.temp)°F \(w.desc)", hero: true)]
 
     // feels-like earns a mention only when it differs from the real temp
-    var today = "today \(w.low)° → \(w.high)°C"
-    if w.feels != w.temp { today = "feels \(w.feels)°C · " + today }
+    var today = "today \(w.low)° → \(w.high)°F"
+    if w.feels != w.temp { today = "feels \(w.feels)°F · " + today }
     rows.append(PopupRow(text: today))
     rows.append(PopupRow(text: "wind \(w.wind) · humidity \(w.humidity)%"))
     if !w.rain.isEmpty { rows.append(PopupRow(text: w.rain)) }

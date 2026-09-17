@@ -10,22 +10,26 @@ if [ -L "$HOME/.local/bin/theme-set" ]; then
   export OMACOSY="$(dirname "$(dirname "$(readlink -f "$HOME/.local/bin/theme-set")")")"
 fi
 
-autoload -Uz compinit
-for dump in ~/.zcompdump(N.mh+24); do
-  compinit -u
-done
-compinit -C
-
 # everything personal lives here; keep this file distributable
 [ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"
 
+if (( ! $+functions[compdef] )); then
+  autoload -Uz compinit
+  for dump in ~/.zcompdump(N.mh+24); do
+    compinit -u
+  done
+  compinit -C
+fi
+
 # CLI stack (after .zshrc.local so frameworks there can't clobber these)
-eval "$(starship init zsh)"
+if [[ "${OMACOSY_PROMPT:-starship}" == "starship" ]]; then
+  eval "$(starship init zsh)"
+fi
 eval "$(zoxide init zsh)"
 command -v fzf >/dev/null && source <(fzf --zsh)
 
 alias ls='eza --group-directories-first --icons=auto'
-alias ll='eza -lh --group-directories-first --icons=auto'
+alias ll='eza -la --group-directories-first --icons=auto'
 alias la='eza -lah --group-directories-first --icons=auto'
 alias lt='eza --tree --level=2 --icons=auto'
 alias cat='bat --paging=never'
