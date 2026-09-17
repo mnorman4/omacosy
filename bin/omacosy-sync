@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Update a personal Omakosy customization branch from the official project,
+# Update a personal Omacosy customization branch from the official project,
 # publish the rebased branch to the fork, and reinstall without starting
 # AeroSpace on an OmniWM system.
 set -euo pipefail
@@ -7,18 +7,100 @@ set -euo pipefail
 say() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31m==>\033[0m %s\n' "$*" >&2; exit 1; }
 
-REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SELF="${BASH_SOURCE[0]}"
+while [ -L "$SELF" ]; do
+  LINK="$(readlink "$SELF")"
+  case "$LINK" in
+    /*) SELF="$LINK" ;;
+    *) SELF="$(dirname "$SELF")/$LINK" ;;
+  esac
+done
+REPO="$(cd "$(dirname "$SELF")/.." && pwd)"
 BRANCH="local/customizations"
+CHECK_ONLY=""
+[ "${1:-}" = "--check" ] && CHECK_ONLY=1
+[ -z "${1:-}" ] || [ -n "$CHECK_ONLY" ] || die "usage: omacosy-sync [--check]"
+
+SETTINGS="config/omniwm/settings.toml"
+RUNTIME_STATE="$HOME/.local/state/omacosy/omniwm-border-runtime.json"
+
+border_change_is_runtime_only() {
+  python3 - "$REPO" "$SETTINGS" <<'PY'
+import pathlib, subprocess, sys, tomllib
+repo, relative = sys.argv[1:]
+base = tomllib.loads(subprocess.check_output(
+    ["git", "-C", repo, "show", f"HEAD:{relative}"], text=True
+))
+live = tomllib.loads((pathlib.Path(repo) / relative).read_text())
+for document in (base, live):
+    borders = document.get("borders")
+    if isinstance(borders, dict):
+        borders.pop("color", None)
+raise SystemExit(0 if base == live else 1)
+PY
+}
+
+save_runtime_border() {
+  mkdir -p "$(dirname "$RUNTIME_STATE")"
+  python3 - "$REPO/$SETTINGS" "$RUNTIME_STATE" <<'PY'
+import json, pathlib, sys, tomllib
+source, destination = map(pathlib.Path, sys.argv[1:])
+color = tomllib.loads(source.read_text()).get("borders", {}).get("color", {})
+destination.write_text(json.dumps(color) + "\n")
+PY
+  git -C "$REPO" restore -- "$SETTINGS"
+}
+
+restore_runtime_border() {
+  [ -s "$RUNTIME_STATE" ] || return 0
+  if grep -q '^<<<<<<< ' "$REPO/$SETTINGS" 2>/dev/null; then
+    say "OmniWM border state retained at $RUNTIME_STATE until the rebase conflict is resolved"
+    return 0
+  fi
+  python3 - "$REPO/$SETTINGS" "$RUNTIME_STATE" <<'PY'
+import json, pathlib, re, sys
+settings, state = map(pathlib.Path, sys.argv[1:])
+values = json.loads(state.read_text())
+text = settings.read_text()
+match = re.search(r'\[borders\.color\]\n(?:[a-z]+ = [0-9.]+\n)+', text)
+if not match:
+    raise SystemExit("could not restore OmniWM [borders.color]")
+block = "[borders.color]\n" + "".join(f"{key} = {values[key]}\n" for key in ("alpha", "blue", "green", "red") if key in values)
+settings.write_text(text[:match.start()] + block + text[match.end():])
+state.unlink()
+PY
+}
 
 git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || die "$REPO is not a Git repository"
 [ "$(git -C "$REPO" branch --show-current)" = "$BRANCH" ] || die "switch to $BRANCH first"
 
-if [ -n "$(git -C "$REPO" status --porcelain)" ]; then
+STATUS="$(git -C "$REPO" status --porcelain)"
+SETTINGS_RUNTIME=""
+if ! git -C "$REPO" diff --quiet -- "$SETTINGS" && border_change_is_runtime_only; then
+  SETTINGS_RUNTIME=1
+  STATUS="$(printf '%s\n' "$STATUS" | grep -vE '^ M config/omniwm/settings\.toml$' || true)"
+fi
+
+if [ -n "$STATUS" ]; then
   git -C "$REPO" status --short
   die "working tree has changes; commit or discard them before syncing"
 fi
 
-say "Fetching official Omakosy updates"
+if [ -n "$CHECK_ONLY" ]; then
+  say "repository: $REPO"
+  say "branch: $BRANCH"
+  [ -n "$SETTINGS_RUNTIME" ] && say "allowed runtime change: OmniWM border color"
+  say "ready to sync"
+  exit 0
+fi
+
+if [ -n "$SETTINGS_RUNTIME" ]; then
+  say "Preserving the active OmniWM border color"
+  save_runtime_border
+  trap 'restore_runtime_border || true' EXIT
+fi
+
+say "Fetching official Omacosy updates"
 git -C "$REPO" fetch upstream main
 
 LOCAL="$(git -C "$REPO" rev-parse HEAD)"
@@ -43,6 +125,11 @@ fi
 
 say "Publishing $BRANCH to the mnorman4 fork"
 git -C "$REPO" push --force-with-lease --set-upstream origin "$BRANCH"
+
+if [ -n "$SETTINGS_RUNTIME" ]; then
+  restore_runtime_border
+  trap - EXIT
+fi
 
 say "Installing updated components while preserving OmniWM"
 "$REPO/install.sh" --omniwm
