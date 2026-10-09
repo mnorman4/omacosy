@@ -346,9 +346,8 @@ startup and does no config-file or image-file I/O while it draws.
 - **Floats**: appears only while the workspace holds floating windows;
   click surfaces the next one.
 
-Weather defaults to Celsius and uses the public IP address for location,
-so it follows a VPN exit node. Override either preference without editing
-the repo:
+This local branch defaults to Fahrenheit and Austin, Texas. Set a
+different location or unit without editing the repo:
 
 ```bash
 omacosy-weather unit fahrenheit

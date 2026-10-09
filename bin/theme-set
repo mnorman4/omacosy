@@ -40,6 +40,20 @@ if [ -f "$KORREN_CFG" ]; then
   sed -i '' "s/^name = \".*\"/name = \"$korren_theme\"/" "$KORREN_CFG"
 fi
 
+# Obsidian: install the selected palette into the vault's active Omarchy
+# theme. Keep the vault path outside this repo so the integration stays
+# portable and can be overridden per invocation when needed.
+OBSIDIAN_VAULT="${OMACOSY_OBSIDIAN_VAULT:-}"
+if [ -z "$OBSIDIAN_VAULT" ] && [ -f "$HOME/.config/omacosy/obsidian-vault" ]; then
+  IFS= read -r OBSIDIAN_VAULT < "$HOME/.config/omacosy/obsidian-vault"
+fi
+OBSIDIAN_THEME_DIR="$OBSIDIAN_VAULT/.obsidian/themes/Omarchy"
+if [ -n "$OBSIDIAN_VAULT" ] &&
+   [ -d "$OBSIDIAN_THEME_DIR" ] &&
+   [ -f "$THEMES_DIR/$NAME/obsidian.css" ]; then
+  install -m 0644 "$THEMES_DIR/$NAME/obsidian.css" "$OBSIDIAN_THEME_DIR/theme.css"
+fi
+
 # Wallpaper: first image in the theme's backgrounds/ dir, on every screen.
 # omacosy-helper wraps NSWorkspace (System Events wallpaper scripting
 # half-broke on macOS 14+: some desktops return "missing value" and
@@ -92,5 +106,10 @@ if sec:
 PY
   fi
 fi
+
+# Ghostty reads its colors from the active theme through the config-file
+# include above. It does not watch that symlink, so ask every running
+# Ghostty instance to reload after a theme switch.
+/usr/bin/pkill -USR2 -x ghostty >/dev/null 2>&1 || true
 
 echo "theme: $NAME"

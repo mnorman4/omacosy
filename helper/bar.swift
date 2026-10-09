@@ -1110,8 +1110,8 @@ struct Weather {
 var weather: Weather?
 
 struct WeatherPreferences {
-    var fahrenheit = false
-    var location = ""
+    var fahrenheit = true
+    var location = "Austin,Texas"
 }
 
 func loadWeatherPreferences() -> WeatherPreferences {
@@ -1122,12 +1122,14 @@ func loadWeatherPreferences() -> WeatherPreferences {
     else { return WeatherPreferences() }
 
     var preferences = WeatherPreferences()
-    if (config["unit"] as? String)?.lowercased() == "fahrenheit" {
-        preferences.fahrenheit = true
+    if let unit = config["unit"] as? String {
+        preferences.fahrenheit = unit.lowercased() == "fahrenheit"
     }
     if let location = config["location"] as? String {
         let trimmed = location.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty, trimmed.lowercased() != "auto" {
+        if trimmed.lowercased() == "auto" {
+            preferences.location = ""
+        } else if !trimmed.isEmpty {
             preferences.location = trimmed
         }
     }
