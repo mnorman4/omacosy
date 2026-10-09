@@ -1,0 +1,121 @@
+{
+  "name": "omacosy-theme",
+  "displayName": "Omacosy Theme",
+  "description": "Keeps Visual Studio Code in sync with the active Omacosy theme.",
+  "version": "0.1.0",
+  "publisher": "omacosy",
+  "license": "MIT",
+  "engines": {
+    "vscode": ">=1.85.0"
+  },
+  "categories": [
+    "Themes"
+  ],
+  "files": [
+    "extension.js",
+    "themes"
+  ],
+  "keywords": [
+    "omacosy",
+    "theme"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": {
+      "supported": true
+    }
+  },
+  "contributes": {
+    "themes": [
+      {
+        "label": "Omacosy: Azure Glow",
+        "uiTheme": "vs-dark",
+        "path": "./themes/azure-glow-color-theme.json"
+      },
+      {
+        "label": "Omacosy: Catppuccin",
+        "uiTheme": "vs-dark",
+        "path": "./themes/catppuccin-color-theme.json"
+      },
+      {
+        "label": "Omacosy: Ethereal",
+        "uiTheme": "vs-dark",
+        "path": "./themes/ethereal-color-theme.json"
+      },
+      {
+        "label": "Omacosy: Gruvbox",
+        "uiTheme": "vs-dark",
+        "path": "./themes/gruvbox-color-theme.json"
+      },
+      {
+        "label": "Omacosy: Hackerman",
+        "uiTheme": "vs-dark",
+        "path": "./themes/hackerman-color-theme.json"
+      },
+      {
+        "label": "Omacosy: Last Horizon",
+        "uiTheme": "vs-dark",
+        "path": "./themes/last-horizon-color-theme.json"
+      },
+      {
+        "label": "Omacosy: Lupine",
+        "uiTheme": "vs",
+        "path": "./themes/lupine-color-theme.json"
+      },
+      {
+        "label": "Omacosy: Matte Black",
+        "uiTheme": "vs-dark",
+        "path": "./themes/matte-black-color-theme.json"
+      },
+      {
+        "label": "Omacosy: Nord",
+        "uiTheme": "vs-dark",
+        "path": "./themes/nord-color-theme.json"
+      },
+      {
+        "label": "Omacosy: Osaka Jade",
+        "uiTheme": "vs-dark",
+        "path": "./themes/osaka-jade-color-theme.json"
+      },
+      {
+        "label": "Omacosy: Retro 82",
+        "uiTheme": "vs-dark",
+        "path": "./themes/retro-82-color-theme.json"
+      },
+      {
+        "label": "Omacosy: Ristretto",
+        "uiTheme": "vs-dark",
+        "path": "./themes/ristretto-color-theme.json"
+      },
+      {
+        "label": "Omacosy: Solitude",
+        "uiTheme": "vs-dark",
+        "path": "./themes/solitude-color-theme.json"
+      },
+      {
+        "label": "Omacosy: Tokyo Night",
+        "uiTheme": "vs-dark",
+        "path": "./themes/tokyo-night-color-theme.json"
+      },
+      {
+        "label": "Omacosy: Van Gogh",
+        "uiTheme": "vs-dark",
+        "path": "./themes/van-gogh-color-theme.json"
+      },
+      {
+        "label": "Omacosy: White",
+        "uiTheme": "vs",
+        "path": "./themes/white-color-theme.json"
+      }
+    ]
+  }
+}
